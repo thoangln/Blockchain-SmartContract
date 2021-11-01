@@ -10,7 +10,7 @@ contract tokenVesting is Ownable{
     ERC20 _token;
     
     // bool public initialized = false;
-    // uint256 public raisedAmount = 0;
+    uint256 public raisedAmount = 0;
     uint256 public totalWithdrawed = 0;
     // enum Round {seed, private_sale};
     mapping (address => Customer) public customers;
@@ -57,6 +57,7 @@ contract tokenVesting is Ownable{
     * @param TGETimestamp timestamp of TGE
     */
     function setTimeLockByTGE(uint256 TGETimestamp) public onlyOwner {
+        delete timeLocks;
         timeLocks.push(TimeLock(TGETimestamp, 5));
         
         uint256 dateAfterLock = TGETimestamp + 90 days;
@@ -67,8 +68,8 @@ contract tokenVesting is Ownable{
     }
     
     /**
-    * get get claimable tokens 
-    * @dev set uint256 of TGE timestamp.
+    * get claimable tokens 
+    * @dev get claimable token.
     */
     function getClaimableTokens() public view customerExist returns (address myWallet, uint256 totalTokens, uint256 claimableTokens, uint256 claimedTokens) {
         uint256 claimableTokens = calculateClaimable(msg.sender);
@@ -84,6 +85,7 @@ contract tokenVesting is Ownable{
     function addCustomer(address payable walletAddress, uint256 totalToken) public onlyOwner {
         require(customers[walletAddress].totalTokens == 0, "This customer has added, please check again!");
         customers[walletAddress] = Customer(walletAddress, totalToken, 0, 0);
+        raisedAmount += totalToken;
         emit CustomerAdded(walletAddress, totalToken);
     }
     
@@ -95,27 +97,11 @@ contract tokenVesting is Ownable{
     */
     function updateCustomer(address payable walletAddress, uint256 totalToken) public onlyOwner {
         require(customers[walletAddress].claimedTokens == 0 && customers[walletAddress].claimableTokens == 0, "Unable to update because this customer already has an unlocked amount of tokens!");
+        raisedAmount -= customers[walletAddress].totalTokens;
+        raisedAmount += totalToken;
         customers[walletAddress] = Customer(walletAddress, totalToken, 0, 0);
         emit CustomerUpdated(walletAddress, totalToken);
     }
-    
-    /**
-    * updateClaimableCustomers
-    * @dev Update claimable token of all customers.
-    */
-    // function updateClaimableCustomers() public onlyOwner {
-    //     uint256 unlockPercent = calculateUnlockPercent();
-        
-    //     for (uint256 index = 0; index < customers.length; index++) {
-    //         unlockedTokens = customers[wallet].totalTokens * unlockPercent / 100;
-    //         if (unlockedTokens) {
-                
-    //         }
-    //     }
-    //     uint256 claimableTokens = calculateClaimable(msg.sender);
-    //     customers[msg.sender].claimableTokens = claimableTokens;
-    //     uint256 remainTokens = customers[msg.sender].totalTokens.sub(customers[msg.sender].claimedTokens);
-    // }
     
     /**
     * transferToken
@@ -172,11 +158,11 @@ contract tokenVesting is Ownable{
     * @dev returns the number of unlock percent tokens until now
     **/
     function calculateUnlockPercent() private view hasTimeLock returns (uint256) {
-        uint256 unlockPercent = 0;
+        uint256 unlockedPercent = 0;
         for (uint256 index = 0; index < timeLocks.length; index++) {
             if (timeLocks[index].datetime > block.timestamp) break;
-            unlockPercent += timeLocks[index].unlockPercent;
+            unlockedPercent += timeLocks[index].unlockPercent;
         }
-        return unlockPercent;
+        return unlockedPercent;
     }
 }
